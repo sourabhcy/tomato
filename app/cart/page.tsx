@@ -2,6 +2,7 @@
 import { getSession } from "@/lib/session";
 import RemoveFromCartButton from "@/components/RemoveFromCartButton";
 import { getCartItems } from "@/services/cartService";
+import Link from "next/link";
 
 export default async function CartPage() {
   const session = await getSession();
@@ -15,7 +16,7 @@ export default async function CartPage() {
   return (
     <main>
       <h1>Your Cart</h1>
-
+        <Link href="/products">Go to products</Link>
       {products.length === 0 ? (
         <p>Your cart is empty.</p>
       ) : (
