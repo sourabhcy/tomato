@@ -1,15 +1,9 @@
-import pool from "@/db/pool";
-import AddToCartButton from "@/app/components/AddToCartButton";
+
+import AddToCartButton from "@/components/AddToCartButton";
+import getProducts from "@/services/productService";
 
 export default async function ProductsPage() {
-    
-    const result = await pool.query(`
-        SELECT id, name,description, price
-        FROM products
-        ORDER BY created_at DESC
-        limit 10
-    `);
-    const products = result.rows;
+    const products = await getProducts();
   return (
     <main>
       <h1>Products</h1>
