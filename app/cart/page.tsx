@@ -1,8 +1,7 @@
-
-import { getSession } from "@/lib/session";
-import RemoveFromCartButton from "@/components/RemoveFromCartButton";
-import { getCartItems } from "@/services/cartService";
 import Link from "next/link";
+import { getSession } from "@/lib/session";
+import { getCartItems } from "@/services/cartService";
+import CartList from "@/components/CartList";
 
 export default async function CartPage() {
   const session = await getSession();
@@ -11,26 +10,15 @@ export default async function CartPage() {
     return <h1>Please login to view your cart</h1>;
   }
 
-    const products = await getCartItems(session.userId);
+  const products = await getCartItems(session.userId);
 
   return (
     <main>
-      <h1>Your Cart</h1>
-        <Link href="/products">Go to products</Link>
-      {products.length === 0 ? (
-        <p>Your cart is empty.</p>
-      ) : (
-        <ul>
-          {products.map((product) => (
-            <li key={product.id}>
-              <h2>{product.name}</h2>
-              <p>{product.description}</p>
-              <p>${product.price}</p>
-              <RemoveFromCartButton productId={product.id} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <nav>
+        <Link href="/products">Continue Shopping</Link>
+      </nav>
+
+      <CartList products={products} />
     </main>
   );
 }

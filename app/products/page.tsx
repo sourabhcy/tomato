@@ -1,26 +1,21 @@
-
-import AddToCartButton from "@/components/AddToCartButton";
-import getProducts from "@/services/productService";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import ProductList from "@/components/ProductList";
+import getProducts from "@/services/productService";
 
 export default async function ProductsPage() {
-    const products = await getProducts();
+  const products = await getProducts();
+
   return (
     <main>
       <h1>Products</h1>
+
+      <nav>
+        <Link href="/cart">Go to Cart</Link>
         <LogoutButton />
-    <Link href="/cart">Go to Cart</Link>
-      <ul>
-        {products.map((product) => (
-          <li key={product.id}>
-            <h2>{product.name}</h2>
-            <p>{product.description}</p>
-            <p>${product.price}</p>
-             <AddToCartButton productId={product.id}/>
-          </li>
-        ))}
-      </ul>
+      </nav>
+
+      <ProductList products={products} />
     </main>
   );
 }

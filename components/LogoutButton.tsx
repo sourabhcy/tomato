@@ -1,5 +1,5 @@
 "use client";
-
+import styles from "./LogoutButton.module.css";
 import { logout } from "@/app/actions/auth";
 
 export default function LogoutButton() {
@@ -10,7 +10,7 @@ export default function LogoutButton() {
   }
 
   return (
-    <button onClick={handleLogout}>
+    <button onClick={handleLogout} className={styles.button}>
       Logout
     </button>
   );

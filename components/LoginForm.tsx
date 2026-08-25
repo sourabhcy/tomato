@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { login } from "@/app/actions/auth";
+import styles from "./LoginForm.module.css";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -21,8 +22,11 @@ export default function LoginForm() {
   }
 
   return (
+  <div className={styles.container}>
+    <h1 className={styles.title}>Login</h1>
+
     <form onSubmit={handleSubmit}>
-      <div>
+      <div className={styles.field}>
         <label>Email</label>
         <input
           type="email"
@@ -32,7 +36,7 @@ export default function LoginForm() {
         />
       </div>
 
-      <div>
+      <div className={styles.field}>
         <label>Password</label>
         <input
           type="password"
@@ -42,9 +46,14 @@ export default function LoginForm() {
         />
       </div>
 
-      <button type="submit">Login</button>
+      <button className={styles.button} type="submit">
+        Login
+      </button>
 
-      {message && <p>{message}</p>}
+      {message && (
+        <p className={styles.error}>{message}</p>
+      )}
     </form>
-  );
+  </div>
+);
 }
