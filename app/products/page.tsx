@@ -20,7 +20,7 @@ export default async function ProductsPage() {
             <h2>{product.name}</h2>
             <p>{product.description}</p>
             <p>${product.price}</p>
-             <AddToCartButton productId={product.id} userId={1}/>
+             <AddToCartButton productId={product.id}/>
           </li>
         ))}
       </ul>

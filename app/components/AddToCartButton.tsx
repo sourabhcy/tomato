@@ -3,15 +3,14 @@ import { addToCart } from "@/app/actions/cart";
 
 interface AddToCartButtonProps {
   productId: number;
-  userId: number;
 }
 
 export default function AddToCartButton({
-    productId,userId
+    productId
 }:AddToCartButtonProps) {
   
   async function handleAddToCart() {
-    await addToCart(productId, userId);
+    await addToCart(productId);
   }
 
   return (
