@@ -27,3 +27,9 @@ export async function login(email: string, password: string) {
 
   return { success: true };
 }
+
+export async function logout() {
+  const cookieStore = await cookies();
+
+  cookieStore.delete("session");
+}
