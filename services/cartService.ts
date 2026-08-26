@@ -24,6 +24,15 @@ export async function removeItemFromCart(userId:number,productId:number){
   );
 }
 
+export async function getCartProductIds(userId: number) {
+  const result = await pool.query<{ product_id: number }>(
+    "SELECT product_id FROM cart_items WHERE user_id = $1",
+    [userId]
+  );
+
+  return result.rows.map(({ product_id }) => product_id);
+}
+
 export async function getCartItems(userId: number) {
   const result = await pool.query(
     `

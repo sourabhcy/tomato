@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import AddToCartButton from "./AddToCartButton";
-import styles from "./ProductList.module.css";
 import type { Product } from "@/services/productService";
 
 const PAGE_SIZE = 100;
@@ -14,28 +13,34 @@ const OVERSCAN_ROWS = 3;
 
 type Viewport = { width: number; height: number; scrollTop: number };
 
-const ProductCard = memo(function ProductCard({ product }: { product?: Product }) {
-  if (!product) return <div aria-hidden="true" className={`${styles.card} ${styles.placeholder}`} />;
+const ProductCard = memo(function ProductCard({ product, isInCart, onCartChange }: {
+  product?: Product;
+  isInCart: boolean;
+  onCartChange: (productId: number, isInCart: boolean) => void;
+}) {
+  if (!product) return <div aria-hidden="true" className="h-[260px] min-w-0 animate-pulse rounded-2xl bg-slate-200" />;
 
   return (
-    <article className={styles.card}>
-      <h2>{product.name}</h2>
-      <p>{product.description}</p>
-      <strong>${product.price}</strong>
-      <AddToCartButton productId={product.id} />
+    <article className="flex h-[260px] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+      <h2 className="truncate text-lg font-semibold text-slate-950">{product.name}</h2>
+      <p className="mt-2 line-clamp-4 text-sm leading-6 text-slate-600">{product.description}</p>
+      <strong className="mt-auto mb-4 block text-xl font-bold tracking-tight text-slate-950">${product.price}</strong>
+      <AddToCartButton productId={product.id} isInCart={isInCart} onCartChange={onCartChange} />
     </article>
   );
 });
 
-export default function ProductList({ initialProducts, productCount }: {
+export default function ProductList({ initialProducts, productCount, initialCartProductIds }: {
   initialProducts: Product[];
   productCount: number;
+  initialCartProductIds: number[];
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef(new Map<number, Product[]>([[0, initialProducts]]));
   const pendingPagesRef = useRef(new Set<number>());
   const frameRef = useRef<number | undefined>(undefined);
   const [pageCache, setPageCache] = useState(() => new Map<number, Product[]>([[0, initialProducts]]));
+  const [cartProductIds, setCartProductIds] = useState(() => new Set(initialCartProductIds));
   const [loadError, setLoadError] = useState(false);
   const [viewport, setViewport] = useState<Viewport>({ width: 0, height: 600, scrollTop: 0 });
 
@@ -67,6 +72,15 @@ export default function ProductList({ initialProducts, productCount }: {
     } finally {
       pendingPagesRef.current.delete(page);
     }
+  }, []);
+
+  const handleCartChange = useCallback((productId: number, isInCart: boolean) => {
+    setCartProductIds((current) => {
+      const next = new Set(current);
+      if (isInCart) next.add(productId);
+      else next.delete(productId);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -104,15 +118,18 @@ export default function ProductList({ initialProducts, productCount }: {
     if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
   }, []);
 
-  if (productCount === 0) return <p>No products are available.</p>;
+  if (productCount === 0) return <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-600">No products are available.</p>;
 
   return (
     <section aria-label="Products">
-      <p className={styles.summary}>{productCount.toLocaleString()} products</p>
-      {loadError && <p className={styles.error} role="status">Some products could not be loaded. Scroll again to retry.</p>}
-      <div className={styles.viewport} onScroll={handleScroll} ref={viewportRef}>
-        <div className={styles.spacer} style={{ height: rowCount * rowHeight - GRID_GAP }}>
-          <div className={styles.grid} style={{
+      <div className="mb-5 flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-600">{productCount.toLocaleString()} products</p>
+        <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Virtualized catalog</span>
+      </div>
+      {loadError && <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800" role="status">Some products could not be loaded. Scroll again to retry.</p>}
+      <div className="h-[min(72vh,760px)] min-h-[420px] overflow-auto rounded-2xl border border-slate-200 bg-slate-100/70 p-3 shadow-inner" onScroll={handleScroll} ref={viewportRef}>
+        <div className="relative min-h-px" style={{ height: rowCount * rowHeight - GRID_GAP }}>
+          <div className="absolute right-0 left-0 grid gap-6" style={{
             gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
             transform: `translate3d(0, ${firstVisibleRow * rowHeight}px, 0)`,
           }}>
@@ -120,7 +137,7 @@ export default function ProductList({ initialProducts, productCount }: {
               const index = startIndex + offset;
               const page = Math.floor(index / PAGE_SIZE);
               const product = pageCache.get(page)?.[index % PAGE_SIZE];
-              return <ProductCard key={product?.id ?? index} product={product} />;
+              return <ProductCard key={product?.id ?? index} product={product} isInCart={product ? cartProductIds.has(product.id) : false} onCartChange={handleCartChange} />;
             })}
           </div>
         </div>
