@@ -6,6 +6,8 @@ pipeline {
     }
 
     environment {
+        IMAGE_NAME = 'ecommerce-app'
+        CONTAINER_NAME = 'ecommerce-app'
         DEPLOY_DIR = '/opt/apps/ecommerce-app'
         DATABASE_URL = credentials('prod-database-url')
         SESSION_SECRET = credentials('SESSION_SECRET')
