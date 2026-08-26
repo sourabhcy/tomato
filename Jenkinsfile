@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/sourabhcy/tomato'
+                git branch: 'ecom-next', url: 'https://github.com/sourabhcy/tomato'
             }
         }
 
