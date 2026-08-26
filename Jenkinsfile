@@ -12,28 +12,57 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+         stage('Checkout') {
             steps {
                 git branch: 'ecom-next', url: 'https://github.com/sourabhcy/tomato'
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Build Docker Image') {
             steps {
-                sh 'npm ci'
+                sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
             }
         }
 
-        stage('Build & Deploy') {
+            stage('Deploy') {
             steps {
-                sh './scripts/deploy.sh'
+                sh '''
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+
+                    docker run -d \
+                      --name ${CONTAINER_NAME} \
+                      --network host \
+                      --restart unless-stopped \
+                      -e DATABASE_URL="${DATABASE_URL}" \
+                      -e SESSION_SECRET="${SESSION_SECRET}" \
+                      -e NODE_ENV=production \
+                      -e HOSTNAME=0.0.0.0 \
+                      ${IMAGE_NAME}:latest
+                '''
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    sleep(time: 5, unit: 'SECONDS')
+                    def health = sh(script: 'curl -sf http://localhost:3000/login', returnStatus: true)
+                    if (health != 0) {
+                        error("Health check failed after deploy")
+                    }
+                }
             }
         }
     }
 
     post {
-        always {
-            sh 'rm -f .env.production'
+        failure {
+            sh 'docker logs ${CONTAINER_NAME} --tail 50 || true'
+        }
+        success {
+            echo 'Deployed successfully.'
         }
     }
+
 }
