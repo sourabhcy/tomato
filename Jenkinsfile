@@ -20,6 +20,13 @@ pipeline {
             }
         }
 
+        stage('Unit Tests') {
+            steps {
+                sh 'npm ci'
+                sh 'npm test -- --ci'
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 sh 'docker build --label version=${BUILD_NUMBER} -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
