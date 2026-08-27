@@ -16,11 +16,12 @@ pipeline {
     stages {
          stage('Checkout') {
             steps {
-                git branch: 'testcases', url: 'https://github.com/sourabhcy/tomato'
+                url: 'https://github.com/sourabhcy/tomato'
             }
         }
 
         stage('Unit Tests') {
+            echo "Running tests for ${env.BRANCH_NAME}"
             steps {
                 sh 'npm ci'
                 sh 'npm test -- --ci'
