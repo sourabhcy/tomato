@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import { BrowserAgent } from "@newrelic/browser-agent/loaders/browser-agent";
 
 export default function NewRelicAgent() {
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const licenseKey = process.env.NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY;
     const applicationID = process.env.NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID;
 
     if (!licenseKey || !applicationID) return;
 
-    new BrowserAgent({
+    void import("@newrelic/browser-agent/loaders/browser-agent").then(
+      ({ BrowserAgent }) =>
+        new BrowserAgent({
       info: {
         applicationID,
         beacon: "bam.nr-data.net",
@@ -36,7 +39,8 @@ export default function NewRelicAgent() {
         applicationID,
         trustKey: process.env.NEXT_PUBLIC_NEW_RELIC_TRUST_KEY,
       },
-    });
+        }),
+    );
   }, []);
 
   return null;
