@@ -15,6 +15,11 @@ pipeline {
         DEPLOY_DIR = '/opt/apps/ecommerce-app'
         DATABASE_URL = credentials('prod-database-url')
         SESSION_SECRET = credentials('SESSION_SECRET')
+        NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID = credentials('new-relic-account-id')
+        NEXT_PUBLIC_NEW_RELIC_AGENT_ID = credentials('new-relic-agent-id')
+        NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID = credentials('new-relic-application-id')
+        NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY = credentials('new-relic-license-key')
+        NEXT_PUBLIC_NEW_RELIC_TRUST_KEY = credentials('new-relic-trust-key')
     }
 
     stages {
@@ -41,7 +46,17 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build --label version=${BUILD_NUMBER} -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
+                sh '''
+                    docker build \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID="${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_AGENT_ID="${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID="${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY="${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_TRUST_KEY="${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}" \
+                      --label version=${BUILD_NUMBER} \
+                      -t ${IMAGE_NAME}:${BUILD_NUMBER} \
+                      -t ${IMAGE_NAME}:latest .
+                '''
             }
         }
 
@@ -57,6 +72,11 @@ pipeline {
                       --restart unless-stopped \
                       -e DATABASE_URL="${DATABASE_URL}" \
                       -e SESSION_SECRET="${SESSION_SECRET}" \
+                      -e NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID="${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}" \
+                      -e NEXT_PUBLIC_NEW_RELIC_AGENT_ID="${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}" \
+                      -e NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID="${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}" \
+                      -e NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY="${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}" \
+                      -e NEXT_PUBLIC_NEW_RELIC_TRUST_KEY="${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}" \
                       -e NODE_ENV=production \
                       -e HOSTNAME=0.0.0.0 \
                       ${IMAGE_NAME}:latest

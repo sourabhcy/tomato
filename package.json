@@ -12,6 +12,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@newrelic/browser-agent": "^1.320.1",
     "bcrypt": "^6.0.0",
     "jose": "^6.2.10",
     "next": "16.3.2",
