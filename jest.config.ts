@@ -10,6 +10,7 @@ const config: Config = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
+  testPathIgnorePatterns: ["<rootDir>/e2e/"],
   testEnvironment: "node",
 };
 

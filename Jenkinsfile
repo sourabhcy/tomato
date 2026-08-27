@@ -18,9 +18,15 @@ pipeline {
     }
 
     stages {
+         stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
         stage('Checkout') {
             steps {
                 git branch: "${params.BRANCH_NAME}", url: 'https://github.com/sourabhcy/tomato'
+                sh 'git log -1 --format="Building commit: %H - %s"'
             }
         }
 
@@ -67,6 +73,20 @@ pipeline {
                         error("Health check failed after deploy")
                     }
                 }
+            }
+        }
+
+        stage('End-to-End Tests') {
+            steps {
+                sh '''
+                    docker run --rm \
+                    --network host \
+                    -e PLAYWRIGHT_BASE_URL=http://localhost:3000 \
+                    -v ${WORKSPACE}:/app \
+                    -w /app \
+                    mcr.microsoft.com/playwright:v1.62.1-noble \
+                    npm run test:e2e
+                '''
             }
         }
     }
