@@ -5,6 +5,10 @@ pipeline {
         nodejs 'NodeJS-25'
     }
 
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'ecom-next', description: 'Git branch to build and deploy')
+    }
+
     environment {
         IMAGE_NAME = 'ecommerce-app'
         CONTAINER_NAME = 'ecommerce-app'
@@ -14,9 +18,18 @@ pipeline {
     }
 
     stages {
-         stage('Checkout') {
+        stage('Checkout') {
             steps {
-                git branch: 'ecom-next', url: 'https://github.com/sourabhcy/tomato'
+                git branch: "${params.BRANCH_NAME}", url: 'https://github.com/sourabhcy/tomato'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                echo "Running tests on branch: ${params.BRANCH_NAME}"
+                sh 'npm ci'
+                sh 'npm test -- --ci'
+                sh 'npm run lint'
             }
         }
 
@@ -26,7 +39,7 @@ pipeline {
             }
         }
 
-            stage('Deploy') {
+        stage('Deploy') {
             steps {
                 sh '''
                     docker stop ${CONTAINER_NAME} || true
@@ -66,5 +79,4 @@ pipeline {
             echo 'Deployed successfully.'
         }
     }
-
 }
