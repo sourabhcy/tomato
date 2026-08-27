@@ -16,7 +16,7 @@ pipeline {
     stages {
          stage('Checkout') {
             steps {
-                git branch: 'ecom-next', url: 'https://github.com/sourabhcy/tomato'
+                git branch: 'testcases', url: 'https://github.com/sourabhcy/tomato'
             }
         }
 
@@ -24,6 +24,7 @@ pipeline {
             steps {
                 sh 'npm ci'
                 sh 'npm test -- --ci'
+                sh 'npm run lint'
             }
         }
 
