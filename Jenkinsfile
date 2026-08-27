@@ -18,9 +18,15 @@ pipeline {
     }
 
     stages {
+         stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
         stage('Checkout') {
             steps {
                 git branch: "${params.BRANCH_NAME}", url: 'https://github.com/sourabhcy/tomato'
+                sh 'git log -1 --format="Building commit: %H - %s"'
             }
         }
 
