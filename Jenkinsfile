@@ -20,7 +20,7 @@ pipeline {
 
         // --- Droplet connection ---
         DROPLET_IP     = '168.144.188.162'
-        DROPLET_SSH_CREDENTIALS_ID = 'droplet_cred'
+        DROPLET_SSH_CREDENTIALS_ID = 'digitalocean-droplet'
         // Note: SSH username is pulled automatically from the credential itself (see SSH_USER binding below), not hardcoded here.
 
         DATABASE_URL = credentials('prod-database-url-DO')
