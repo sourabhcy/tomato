@@ -15,13 +15,13 @@ pipeline {
         DEPLOY_DIR     = '/opt/apps/ecommerce-app'
 
         // --- DigitalOcean Container Registry ---
-        REGISTRY       = 'registry.digitalocean.com/ecom-next-registry' 
-        DO_API_TOKEN   = credentials('digitalocean_secreat_api_key')                    // DO API token, stored as Secret text
+        REGISTRY       = 'registry.digitalocean.com/ecom-next-registry'
+        DO_API_TOKEN   = credentials('digitalocean_secreat_api_key')    // DO API token, stored as Secret text
 
         // --- Droplet connection ---
-        DROPLET_IP     = '168.144.188.162'                      // TODO: replace with your droplet IP
-        DROPLET_USER   = 'root'                                         // TODO: change if not root
-        DROPLET_SSH_CREDENTIALS_ID = 'droplet_cred'          // TODO: set to the actual Credential ID you gave the SSH key in Jenkins
+        DROPLET_IP     = '168.144.188.162'
+        DROPLET_SSH_CREDENTIALS_ID = 'droplet_cred'
+        // Note: SSH username is pulled automatically from the credential itself (see SSH_USER binding below), not hardcoded here.
 
         DATABASE_URL = credentials('prod-database-url-DO')
         SESSION_SECRET = credentials('SESSION_SECRET')
@@ -83,9 +83,9 @@ pipeline {
 
         stage('Deploy to Droplet') {
             steps {
-                sshagent(credentials: [DROPLET_SSH_CREDENTIALS_ID]) {
+                withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no ${DROPLET_USER}@${DROPLET_IP} "
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "
                             echo '${DO_API_TOKEN}' | docker login registry.digitalocean.com -u unused --password-stdin &&
                             docker pull ${REGISTRY}/${IMAGE_NAME}:latest &&
                             docker stop ${CONTAINER_NAME} || true &&
@@ -112,9 +112,9 @@ pipeline {
 
         stage('Cleanup Old Images on Droplet') {
             steps {
-                sshagent(credentials: [DROPLET_SSH_CREDENTIALS_ID]) {
+                withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no ${DROPLET_USER}@${DROPLET_IP} "
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "
                             docker image prune -f &&
                             docker container prune -f
                         "
@@ -152,8 +152,8 @@ pipeline {
 
     post {
         failure {
-            sshagent(credentials: [DROPLET_SSH_CREDENTIALS_ID]) {
-                sh 'ssh -o StrictHostKeyChecking=no ${DROPLET_USER}@${DROPLET_IP} "docker logs ${CONTAINER_NAME} --tail 50" || true'
+            withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh 'ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "docker logs ${CONTAINER_NAME} --tail 50" || true'
             }
         }
         success {
