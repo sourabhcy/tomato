@@ -8,8 +8,20 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
     depends_on:
       - ecommerce-app
+    networks:
+      - app-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: "true"   # no-op on `docker compose up`; run manually for cert issuance/renewal
     networks:
       - app-network
 
@@ -46,6 +58,8 @@ services:
 
 volumes:
   pgdata:
+  certbot-etc:
+  certbot-www:
 
 networks:
   app-network:
