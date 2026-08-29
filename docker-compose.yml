@@ -21,7 +21,7 @@ services:
     volumes:
       - certbot-etc:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-    entrypoint: "true"   # no-op on `docker compose up`; run manually for cert issuance/renewal
+    command: ["certificates"]   # harmless default so `docker compose up` doesn't hang; real cert requests use `docker compose run certbot ...`
     networks:
       - app-network
 
