@@ -119,7 +119,7 @@ ENVEOF
                 withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} \
-                          "echo '${DO_API_TOKEN}' | docker login registry.digitalocean.com -u unused --password-stdin && cd ${DEPLOY_DIR} && docker compose pull && docker compose up -d"
+                          "echo '${DO_API_TOKEN}' | docker login registry.digitalocean.com -u unused --password-stdin && cd ${DEPLOY_DIR} && docker compose pull && docker compose up -d && docker compose exec -T nginx nginx -s reload"
                     '''
                 }
             }
