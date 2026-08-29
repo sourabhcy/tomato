@@ -107,7 +107,7 @@ ENVEOF
                 withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "mkdir -p ${DEPLOY_DIR}"
-                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY} docker-compose.yml .env ${SSH_USER}@${DROPLET_IP}:${DEPLOY_DIR}/
+                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY} docker-compose.yml nginx.conf .env ${SSH_USER}@${DROPLET_IP}:${DEPLOY_DIR}/
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "chmod 600 ${DEPLOY_DIR}/.env"
                     '''
                 }
@@ -139,7 +139,7 @@ ENVEOF
             steps {
                 script {
                     sleep(time: 5, unit: 'SECONDS')
-                    def health = sh(script: "curl -sf http://${DROPLET_IP}:3000/login", returnStatus: true)
+                    def health = sh(script: "curl -sf http://${DROPLET_IP}:80/login", returnStatus: true)
                     if (health != 0) {
                         error("Health check failed after deploy")
                     }

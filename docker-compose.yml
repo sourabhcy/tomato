@@ -1,10 +1,24 @@
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - ecommerce-app
+    networks:
+      - app-network
+
   ecommerce-app:
     image: registry.digitalocean.com/ecom-next-registry/ecommerce-app:latest
     container_name: ecommerce-app
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     env_file:
       - .env
     environment:
@@ -12,6 +26,8 @@ services:
       - HOSTNAME=0.0.0.0
     depends_on:
       - postgres
+    networks:
+      - app-network
 
   postgres:
     image: postgres:16
@@ -25,6 +41,12 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
 
 volumes:
   pgdata:
+
+networks:
+  app-network:
+    driver: bridge
