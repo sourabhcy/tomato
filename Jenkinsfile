@@ -23,7 +23,9 @@ pipeline {
         DROPLET_SSH_CREDENTIALS_ID = 'digitalocean-droplet'
         // Note: SSH username is pulled automatically from the credential itself (see SSH_USER binding below), not hardcoded here.
 
-        DATABASE_URL = credentials('prod-database-url-DO')
+        POSTGRES_USER     = credentials('postgres-user')
+        POSTGRES_PASSWORD = credentials('postgres-password')
+        POSTGRES_DB       = credentials('postgres-db')
         SESSION_SECRET = credentials('SESSION_SECRET')
         NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID = credentials('new-relic-account-id')
         NEXT_PUBLIC_NEW_RELIC_AGENT_ID = credentials('new-relic-agent-id')
@@ -81,30 +83,43 @@ pipeline {
             }
         }
 
+        stage('Prepare Env File') {
+            steps {
+                sh '''
+                    cat > .env << ENVEOF
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+SESSION_SECRET=${SESSION_SECRET}
+NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID=${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}
+NEXT_PUBLIC_NEW_RELIC_AGENT_ID=${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}
+NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID=${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}
+NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY=${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}
+NEXT_PUBLIC_NEW_RELIC_TRUST_KEY=${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}
+ENVEOF
+                '''
+            }
+        }
+
+        stage('Copy Files to Droplet') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "mkdir -p ${DEPLOY_DIR}"
+                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY} docker-compose.yml .env ${SSH_USER}@${DROPLET_IP}:${DEPLOY_DIR}/
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "chmod 600 ${DEPLOY_DIR}/.env"
+                    '''
+                }
+            }
+        }
+
         stage('Deploy to Droplet') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "
-                            echo '${DO_API_TOKEN}' | docker login registry.digitalocean.com -u unused --password-stdin &&
-                            docker pull ${REGISTRY}/${IMAGE_NAME}:latest &&
-                            docker stop ${CONTAINER_NAME} || true &&
-                            docker rm ${CONTAINER_NAME} || true &&
-                            docker run -d \
-                              --name ${CONTAINER_NAME} \
-                              --network host \
-                              --restart unless-stopped \
-                              -e DATABASE_URL='${DATABASE_URL}' \
-                              -e SESSION_SECRET='${SESSION_SECRET}' \
-                              -e NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID='${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}' \
-                              -e NEXT_PUBLIC_NEW_RELIC_AGENT_ID='${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}' \
-                              -e NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID='${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}' \
-                              -e NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY='${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}' \
-                              -e NEXT_PUBLIC_NEW_RELIC_TRUST_KEY='${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}' \
-                              -e NODE_ENV=production \
-                              -e HOSTNAME=0.0.0.0 \
-                              ${REGISTRY}/${IMAGE_NAME}:latest
-                        "
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} \
+                          "echo '${DO_API_TOKEN}' | docker login registry.digitalocean.com -u unused --password-stdin && cd ${DEPLOY_DIR} && docker compose pull && docker compose up -d"
                     '''
                 }
             }
@@ -114,10 +129,7 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "
-                            docker image prune -f &&
-                            docker container prune -f
-                        "
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "docker image prune -f && docker container prune -f"
                     '''
                 }
             }
@@ -153,7 +165,7 @@ pipeline {
     post {
         failure {
             withCredentials([sshUserPrivateKey(credentialsId: DROPLET_SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh 'ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "docker logs ${CONTAINER_NAME} --tail 50" || true'
+                sh 'ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${DROPLET_IP} "cd ${DEPLOY_DIR} && docker compose logs --tail 50" || true'
             }
         }
         success {
