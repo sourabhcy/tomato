@@ -5,11 +5,11 @@ pipeline {
         nodejs 'NodeJS-25'
     }
 
-    parameters {
+       parameters {
         choice(name: 'DEPLOY_ENV', choices: ['staging', 'production'], description: 'Target environment to build and deploy')
         string(name: 'BRANCH_NAME', defaultValue: 'staging', description: 'Git branch to build and deploy')
+        string(name: 'STAGING_NGINX_PORT', defaultValue: '8081', description: 'Host port for staging nginx (staging only)')
     }
-
     environment {
         IMAGE_NAME = 'ecommerce-app'
         REGISTRY   = 'registry.digitalocean.com/ecom-next-registry'
@@ -123,6 +123,7 @@ NEXT_PUBLIC_NEW_RELIC_AGENT_ID=\${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}
 NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID=\${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}
 NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY=\${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}
 NEXT_PUBLIC_NEW_RELIC_TRUST_KEY=\${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}
+${params.DEPLOY_ENV == 'staging' ? "APP_PORT=3000\nNGINX_PORT=${params.STAGING_NGINX_PORT}" : ''}
 ENVEOF
                         """
                     }
