@@ -167,16 +167,19 @@ ENVEOF
         }
 
         stage('Deploy Locally') {
-            when { expression { params.DEPLOY_ENV == 'staging' } }
+                       when { expression { params.DEPLOY_ENV == 'staging' } }
             steps {
                 sh '''
                     mkdir -p ${STAGING_DEPLOY_DIR}
                     cp docker-compose.staging.yml nginx.staging.conf .env.staging ${STAGING_DEPLOY_DIR}/
                     cd ${STAGING_DEPLOY_DIR}
+                    # Force-remove any containers from a prior deploy dir/project to avoid fixed-name conflicts.
+                    docker rm -f postgres-staging ecommerce-app-staging nginx-proxy-staging 2>/dev/null || true
                     docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
                     docker exec nginx-proxy-staging nginx -s reload
                 '''
             }
+        }
         }
 
         stage('Health Check') {
