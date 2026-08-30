@@ -1,0 +1,120 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS-25'
+    }
+
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'staging', description: 'Git branch to build and deploy for staging')
+    }
+
+    environment {
+        IMAGE_NAME = 'ecommerce-app'
+        DEPLOY_DIR = '/home/sourabh/experimental/deployment'
+
+        POSTGRES_USER     = credentials('postgres-user-staging')
+        POSTGRES_PASSWORD = credentials('postgres-password-staging')
+        POSTGRES_DB       = credentials('postgres-db-staging')
+        SESSION_SECRET = credentials('SESSION_SECRET')
+        NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID = credentials('new-relic-account-id')
+        NEXT_PUBLIC_NEW_RELIC_AGENT_ID = credentials('new-relic-agent-id')
+        NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID = credentials('new-relic-application-id')
+        NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY = credentials('new-relic-license-key')
+        NEXT_PUBLIC_NEW_RELIC_TRUST_KEY = credentials('new-relic-trust-key')
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                git branch: "${params.BRANCH_NAME}", url: 'https://github.com/sourabhcy/tomato'
+                sh 'git log -1 --format="Building commit: %H - %s"'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh 'npm ci'
+                sh 'npm test -- --ci'
+                sh 'npm run lint'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID="${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_AGENT_ID="${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID="${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY="${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}" \
+                      --build-arg NEXT_PUBLIC_NEW_RELIC_TRUST_KEY="${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}" \
+                      -t ${IMAGE_NAME}:staging .
+                '''
+            }
+        }
+
+        stage('Prepare Env File') {
+            steps {
+                sh '''
+                    cat > .env.staging << ENVEOF
+NODE_ENV=production
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+SESSION_SECRET=${SESSION_SECRET}
+NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID=${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}
+NEXT_PUBLIC_NEW_RELIC_AGENT_ID=${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}
+NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID=${NEXT_PUBLIC_NEW_RELIC_APPLICATION_ID}
+NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY=${NEXT_PUBLIC_NEW_RELIC_LICENSE_KEY}
+NEXT_PUBLIC_NEW_RELIC_TRUST_KEY=${NEXT_PUBLIC_NEW_RELIC_TRUST_KEY}
+ENVEOF
+                '''
+            }
+        }
+
+        stage('Deploy Locally') {
+            steps {
+                sh '''
+                    mkdir -p ${DEPLOY_DIR}
+                    cp docker-compose.staging.yml nginx.staging.conf .env.staging ${DEPLOY_DIR}/
+                    cd ${DEPLOY_DIR}
+                    docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+                    docker exec nginx-proxy-staging nginx -s reload
+                '''
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    sleep(time: 5, unit: 'SECONDS')
+                    def port = sh(script: "grep '^NGINX_PORT=' ${DEPLOY_DIR}/.env.staging | cut -d= -f2-", returnStdout: true).trim()
+                    if (!port) {
+                        port = '8080'
+                    }
+                    def health = sh(script: "curl -sf http://localhost:${port}/login", returnStatus: true)
+                    if (health != 0) {
+                        error("Health check failed after staging deploy")
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            sh "cd ${DEPLOY_DIR} && docker compose -f docker-compose.staging.yml logs --tail 50 || true"
+        }
+        success {
+            echo 'Staging deployed successfully.'
+        }
+    }
+}
