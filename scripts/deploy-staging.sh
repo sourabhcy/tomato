@@ -20,7 +20,10 @@ mkdir -p "${DEPLOY_DIR}"
 cp docker-compose.staging.yml nginx.staging.conf .env.staging "${DEPLOY_DIR}/"
 
 cd "${DEPLOY_DIR}"
+# Force-remove any containers from a prior deploy dir/project to avoid fixed-name conflicts (matches Jenkinsfile).
+docker rm -f postgres-staging ecommerce-app-staging nginx-proxy-staging 2>/dev/null || true
 docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+docker exec nginx-proxy-staging nginx -s reload || true
 
 PORT="$(grep ^NGINX_PORT= .env.staging | cut -d= -f2-)"
 echo "Staging stack deployed. App available at http://localhost:${PORT:-8080}"

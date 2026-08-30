@@ -4,8 +4,8 @@ const secret = new TextEncoder().encode(
   process.env.SESSION_SECRET!
 );
 
-export async function createSession(userId: number) {
-  return await new SignJWT({ userId })
+export async function createSession(userId: number, role: string) {
+  return await new SignJWT({ userId, role })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("1h")
@@ -27,6 +27,7 @@ export async function getSession() {
 
     return {
       userId: payload.userId as number,
+      role: payload.role as string,
     };
   } catch {
     return null;

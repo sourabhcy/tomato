@@ -25,7 +25,7 @@ describe("cart actions", () => {
   });
 
   it("adds an item to the authenticated user's cart", async () => {
-    mockGetSession.mockResolvedValue({ userId: 7 });
+    mockGetSession.mockResolvedValue({ userId: 7, role: "user" });
 
     await addToCart(42);
 
@@ -33,7 +33,7 @@ describe("cart actions", () => {
   });
 
   it("removes an item from the authenticated user's cart", async () => {
-    mockGetSession.mockResolvedValue({ userId: 7 });
+    mockGetSession.mockResolvedValue({ userId: 7, role: "user" });
 
     await removeFromCart(42);
 

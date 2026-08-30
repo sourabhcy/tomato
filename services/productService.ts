@@ -30,3 +30,33 @@ export async function getProductPage(offset: number, limit: number) {
 
   return result.rows;
 }
+
+export type NewProduct = {
+  name: string;
+  description: string;
+  price: number;
+};
+
+// Inserts a fresh batch of products to update the inventory; existing products are left untouched.
+export async function bulkInsertProducts(products: NewProduct[]) {
+  if (products.length === 0) {
+    return 0;
+  }
+
+  const values: string[] = [];
+  const params: unknown[] = [];
+
+  products.forEach((product, index) => {
+    const base = index * 3;
+    values.push(`($${base + 1}, $${base + 2}, $${base + 3})`);
+    params.push(product.name, product.description, product.price);
+  });
+
+  const result = await pool.query(
+    `INSERT INTO products (name, description, price) VALUES ${values.join(", ")}`,
+    params
+  );
+
+  return result.rowCount ?? 0;
+}
+

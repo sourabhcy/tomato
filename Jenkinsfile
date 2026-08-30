@@ -177,7 +177,7 @@ ENVEOF
                     # Force-remove any containers from a prior deploy dir/project to avoid fixed-name conflicts.
                     docker rm -f postgres-staging ecommerce-app-staging nginx-proxy-staging 2>/dev/null || true
                     docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
-                    docker exec nginx-proxy-staging nginx -s reload
+                    docker exec nginx-proxy-staging nginx -s reload || true
                 '''
             }
 

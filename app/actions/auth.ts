@@ -13,7 +13,7 @@ export async function login(email: string, password: string) {
   }
 
 
-  const token = await createSession(user.id);
+  const token = await createSession(user.id, user.role);
 
   const cookieStore = await cookies();
 
