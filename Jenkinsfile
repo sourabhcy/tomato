@@ -179,7 +179,7 @@ ENVEOF
                     docker exec nginx-proxy-staging nginx -s reload
                 '''
             }
-        }
+
         }
 
         stage('Health Check') {
