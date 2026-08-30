@@ -20,7 +20,7 @@ pipeline {
         // Note: SSH username is pulled automatically from the credential itself (see SSH_USER binding below), not hardcoded here.
 
         // --- Deploy locations ---
-        STAGING_DEPLOY_DIR    = '/home/sourabh/experimental/deployment'
+        STAGING_DEPLOY_DIR = '/var/lib/jenkins/deployments/ecommerce-app-staging'
         PRODUCTION_DEPLOY_DIR = '/opt/apps/ecommerce-app'
 
         SESSION_SECRET = credentials('SESSION_SECRET')
