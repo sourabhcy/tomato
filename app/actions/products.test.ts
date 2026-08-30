@@ -52,4 +52,16 @@ describe("uploadProductList action", () => {
       "Invalid product row"
     );
   });
+
+  it("rejects an oversized file without reading its content", async () => {
+    mockGetSession.mockResolvedValue({ userId: 1, role: "admin" });
+
+    const formData = new FormData();
+    const oversizedFile = new File(["x"], "products.csv", { type: "text/csv" });
+    Object.defineProperty(oversizedFile, "size", { value: 3 * 1024 * 1024 });
+    formData.set("file", oversizedFile);
+
+    await expect(uploadProductList(formData)).rejects.toThrow("exceeds maximum allowed size");
+    expect(mockBulkInsertProducts).not.toHaveBeenCalled();
+  });
 });

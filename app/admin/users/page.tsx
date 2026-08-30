@@ -1,23 +1,20 @@
 import Link from "next/link";
-import { getSession } from "@/lib/session";
+import { getSessionWithPermission } from "@/lib/authorize";
+import { canManage } from "@/lib/rbac";
 import { getAllUsers } from "@/services/userService";
 import UserList from "@/components/UserList";
 import AddUserForm from "@/components/AddUserForm";
+import Unauthorized from "@/components/Unauthorized";
 
 export default async function AdminUsersPage() {
-  const session = await getSession();
+  const session = await getSessionWithPermission("admin:view");
 
-  if (!session || session.role !== "admin") {
-    return (
-      <main className="grid min-h-screen place-items-center p-6">
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 font-medium text-rose-900">
-          You are not authorized to perform this operation.
-        </p>
-      </main>
-    );
+  if (!session) {
+    return <Unauthorized />;
   }
 
   const users = await getAllUsers();
+  const canManageUsers = canManage(session.role, "users");
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -33,8 +30,8 @@ export default async function AdminUsersPage() {
       <h1 className="mb-6 text-3xl font-bold tracking-tight text-slate-950">Users</h1>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        <UserList users={users} />
-        <AddUserForm />
+        <UserList users={users} canManage={canManageUsers} />
+        {canManageUsers && <AddUserForm />}
       </div>
     </main>
   );

@@ -4,6 +4,7 @@ import ProductList from "@/components/ProductList";
 import { getProductCount, getProductPage } from "@/services/productService";
 import { getCartProductIds } from "@/services/cartService";
 import { getSession } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 const INITIAL_PAGE_SIZE = 100;
 
@@ -29,7 +30,7 @@ export default async function ProductsPage() {
           <Link href="/cart" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             View cart
           </Link>
-          {session?.role === "admin" && (
+          {hasPermission(session?.role, "admin:view") && (
             <Link href="/admin/users" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             Admin
           </Link>

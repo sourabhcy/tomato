@@ -14,4 +14,5 @@ Do the following changes to develop role based access for this product.Follow th
 
 7) create e2e automation for this.
 
+8) modular, seperation of concern and redability.
 

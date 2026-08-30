@@ -1,31 +1,21 @@
 "use server";
 
-import { requireAdmin } from "@/lib/authorize";
-import { bulkInsertProducts, type NewProduct } from "@/services/productService";
-
-// Expects a CSV with header: name,description,price
-function parseProductCsv(csv: string): NewProduct[] {
-  const lines = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const [, ...rows] = lines;
-
-  return rows.map((row) => {
-    const [name, description, price] = row.split(",").map((value) => value.trim());
-
-    if (!name || !description || !price || Number.isNaN(Number(price))) {
-      throw new Error(`Invalid product row: "${row}"`);
-    }
-
-    return { name, description, price: Number(price) };
-  });
-}
+import { requirePermission } from "@/lib/authorize";
+import { MAX_CSV_BYTES, parseProductCsv } from "@/lib/productCsv";
+import { bulkInsertProducts } from "@/services/productService";
 
 export async function uploadProductList(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("products:manage");
 
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
     throw new Error("No file uploaded");
+  }
+
+  // Check size before reading content, so an oversized file is never buffered into memory.
+  if (file.size > MAX_CSV_BYTES) {
+    throw new Error(`File exceeds maximum allowed size of ${MAX_CSV_BYTES} bytes`);
   }
 
   const csv = await file.text();

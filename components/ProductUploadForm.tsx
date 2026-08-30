@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { uploadProductList } from "@/app/actions/products";
+import { MAX_CSV_BYTES } from "@/lib/productCsv";
 
 export default function ProductUploadForm() {
   const [message, setMessage] = useState("");
@@ -11,6 +12,14 @@ export default function ProductUploadForm() {
     setMessage("");
 
     const formData = new FormData(e.currentTarget);
+    const file = formData.get("file");
+
+    // Reject oversized files before uploading, so the browser never attempts
+    // to send (and the server never buffers) an excessively large payload.
+    if (file instanceof File && file.size > MAX_CSV_BYTES) {
+      setMessage(`File is too large. Maximum allowed size is ${MAX_CSV_BYTES / (1024 * 1024)}MB.`);
+      return;
+    }
 
     try {
       const result = await uploadProductList(formData);

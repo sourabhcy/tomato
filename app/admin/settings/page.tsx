@@ -1,19 +1,15 @@
 import Link from "next/link";
-import { getSession } from "@/lib/session";
+import { getSessionWithPermission } from "@/lib/authorize";
+import { canManage } from "@/lib/rbac";
 import AddUserForm from "@/components/AddUserForm";
 import ProductUploadForm from "@/components/ProductUploadForm";
+import Unauthorized from "@/components/Unauthorized";
 
 export default async function AdminSettingsPage() {
-  const session = await getSession();
+  const session = await getSessionWithPermission("admin:view");
 
-  if (!session || session.role !== "admin") {
-    return (
-      <main className="grid min-h-screen place-items-center p-6">
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 font-medium text-rose-900">
-          You are not authorized to perform this operation.
-        </p>
-      </main>
-    );
+  if (!session) {
+    return <Unauthorized />;
   }
 
   return (
@@ -27,8 +23,8 @@ export default async function AdminSettingsPage() {
       <h1 className="mb-6 text-3xl font-bold tracking-tight text-slate-950">Configuration</h1>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        <AddUserForm />
-        <ProductUploadForm />
+        {canManage(session.role, "users") && <AddUserForm />}
+        {canManage(session.role, "products") && <ProductUploadForm />}
       </div>
     </main>
   );
