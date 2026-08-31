@@ -5,6 +5,9 @@ type Product = {
   name: string;
   description: string;
   price: number;
+  thumbnailUrl: string | null;
+  thumbnailWidth: number | null;
+  thumbnailHeight: number | null;
 };
 
 export default function CartList({
@@ -29,6 +32,9 @@ export default function CartList({
         <ul className="space-y-3">
           {products.map((product) => (
             <li className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between" key={product.id}>
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
+                {product.thumbnailUrl ? <img src={product.thumbnailUrl} alt="" width={product.thumbnailWidth ?? 256} height={product.thumbnailHeight ?? 256} loading="lazy" className="h-full w-full object-contain" /> : <div aria-label="No product image available" className="h-full w-full bg-slate-200" role="img" />}
+              </div>
               <div className="min-w-0">
                 <h2 className="truncate text-lg font-semibold text-slate-950">{product.name}</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">{product.description}</p>

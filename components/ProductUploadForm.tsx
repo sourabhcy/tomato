@@ -6,10 +6,12 @@ import { MAX_CSV_BYTES } from "@/lib/productCsv";
 
 export default function ProductUploadForm() {
   const [message, setMessage] = useState("");
+  const [errors, setErrors] = useState<{ row: number; message: string }[]>([]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage("");
+    setErrors([]);
 
     const formData = new FormData(e.currentTarget);
     const file = formData.get("file");
@@ -23,7 +25,8 @@ export default function ProductUploadForm() {
 
     try {
       const result = await uploadProductList(formData);
-      setMessage(`Inserted ${result.inserted} product(s).`);
+      setMessage(`Inserted ${result.inserted} product(s). ${result.failed} row(s) failed.`);
+      setErrors(result.errors);
       e.currentTarget.reset();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to upload product list");
@@ -33,7 +36,7 @@ export default function ProductUploadForm() {
   return (
     <form className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
       <h2 className="text-lg font-bold text-slate-950">Update inventory</h2>
-      <p className="text-sm text-slate-600">Upload a CSV with header: name,description,price</p>
+      <p className="text-sm text-slate-600">Upload a CSV with header: name,description,price,image_url</p>
 
       <input
         type="file"
@@ -52,6 +55,11 @@ export default function ProductUploadForm() {
 
       {message && (
         <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">{message}</p>
+      )}
+      {errors.length > 0 && (
+        <ul className="space-y-1 text-sm text-red-700">
+          {errors.map((error) => <li key={`${error.row}-${error.message}`}>Row {error.row}: {error.message}</li>)}
+        </ul>
       )}
     </form>
   );

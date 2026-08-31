@@ -35,22 +35,25 @@ describe("uploadProductList action", () => {
     mockBulkInsertProducts.mockResolvedValue(2);
 
     const result = await uploadProductList(
-      csvFile("name,description,price\nMouse,A mouse,9.99\nKeyboard,A keyboard,19.99")
+      csvFile("name,description,price,image_url\nMouse,A mouse,9.99,products/mouse.webp\nKeyboard,A keyboard,19.99,products/keyboard.webp")
     );
 
     expect(mockBulkInsertProducts).toHaveBeenCalledWith([
-      { name: "Mouse", description: "A mouse", price: 9.99 },
-      { name: "Keyboard", description: "A keyboard", price: 19.99 },
+      { name: "Mouse", description: "A mouse", price: 9.99, storageKey: "products/mouse.webp" },
+      { name: "Keyboard", description: "A keyboard", price: 19.99, storageKey: "products/keyboard.webp" },
     ]);
-    expect(result).toEqual({ inserted: 2 });
+    expect(result).toEqual({ inserted: 2, failed: 0, errors: [] });
   });
 
-  it("rejects a malformed row", async () => {
+  it("returns malformed-row errors while inserting valid products", async () => {
     mockGetSession.mockResolvedValue({ userId: 1, role: "admin" });
+    mockBulkInsertProducts.mockResolvedValue(1);
 
-    await expect(uploadProductList(csvFile("name,description,price\nMouse,A mouse,not-a-number"))).rejects.toThrow(
-      "Invalid product row"
-    );
+    await expect(uploadProductList(csvFile("name,description,price,image_url\nMouse,A mouse,not-a-number,products/mouse.webp\nKeyboard,A keyboard,19.99,products/keyboard.webp"))).resolves.toEqual({
+      inserted: 1,
+      failed: 1,
+      errors: [{ row: 2, message: "price must be a valid non-negative number" }],
+    });
   });
 
   it("rejects an oversized file without reading its content", async () => {

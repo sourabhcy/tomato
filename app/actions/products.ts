@@ -19,9 +19,9 @@ export async function uploadProductList(formData: FormData) {
   }
 
   const csv = await file.text();
-  const products = parseProductCsv(csv);
+  const { products, errors } = parseProductCsv(csv);
 
   const inserted = await bulkInsertProducts(products);
 
-  return { inserted };
+  return { inserted, failed: errors.length, errors };
 }
