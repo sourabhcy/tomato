@@ -5,9 +5,13 @@ export type Product = {
   name: string;
   description: string;
   price: number;
-  thumbnailUrl: string | null;
-  thumbnailWidth: number | null;
-  thumbnailHeight: number | null;
+  imageSources: ProductImageSource[];
+};
+
+export type ProductImageSource = {
+  url: string;
+  width: number;
+  height: number | null;
 };
 
 export type ProductImage = {
@@ -19,13 +23,11 @@ export type ProductImage = {
 
 export type ProductDetail = Product & { images: ProductImage[] };
 
-type ProductRow = Omit<Product, "thumbnailUrl" | "thumbnailWidth" | "thumbnailHeight"> & {
-  thumbnail_key: string | null;
-  thumbnail_width: number | null;
-  thumbnail_height: number | null;
+type ProductRow = Omit<Product, "imageSources"> & {
+  image_sources: { storageKey: string; width: number; height: number | null }[];
 };
 
-type ProductDetailRow = Omit<ProductRow, "thumbnail_key" | "thumbnail_width" | "thumbnail_height"> & {
+type ProductDetailRow = Omit<ProductRow, "image_sources"> & {
   image_key: string | null;
   image_position: number | null;
   image_width: number | null;
@@ -45,9 +47,11 @@ function mapProduct(row: ProductRow): Product {
     name: row.name,
     description: row.description,
     price: row.price,
-    thumbnailUrl: buildImageUrl(row.thumbnail_key),
-    thumbnailWidth: row.thumbnail_width,
-    thumbnailHeight: row.thumbnail_height,
+    imageSources: row.image_sources.map((image) => ({
+      url: buildImageUrl(image.storageKey)!,
+      width: image.width,
+      height: image.height,
+    })),
   };
 }
 
@@ -62,10 +66,20 @@ export async function getProductCount() {
 export async function getProductPage(offset: number, limit: number) {
   const result = await pool.query<ProductRow>(
     `
-      SELECT ${PRODUCT_COLUMNS}, pi.storage_key AS thumbnail_key,
-        pi.width AS thumbnail_width, pi.height AS thumbnail_height
+      SELECT ${PRODUCT_COLUMNS},
+        COALESCE(
+          jsonb_agg(
+            jsonb_build_object(
+              'storageKey', pi.storage_key,
+              'width', pi.width,
+              'height', pi.height
+            ) ORDER BY pi.position
+          ) FILTER (WHERE pi.id IS NOT NULL),
+          '[]'::jsonb
+        ) AS image_sources
       FROM products p
-      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.position = 0
+      LEFT JOIN product_images pi ON pi.product_id = p.id
+      GROUP BY p.id
       ORDER BY p.created_at DESC, p.id DESC
       LIMIT $1 OFFSET $2
     `,
@@ -92,7 +106,7 @@ export async function getProductById(productId: number): Promise<ProductDetail |
   if (!product) return null;
 
   return {
-    ...mapProduct({ ...product, thumbnail_key: null, thumbnail_width: null, thumbnail_height: null }),
+    ...mapProduct({ ...product, image_sources: [] }),
     images: result.rows.flatMap((row) => row.image_key === null || row.image_position === null ? [] : [{
       url: buildImageUrl(row.image_key)!, position: row.image_position, width: row.image_width, height: row.image_height,
     }]),
@@ -103,11 +117,18 @@ export type NewProduct = {
   name: string;
   description: string;
   price: number;
-  storageKey: string;
+  images: {
+    storageKey: string;
+    position: number;
+    width: number;
+    height: number;
+  }[];
 };
 
-// Inserts a fresh batch of products to update the inventory; existing products are left untouched.
-export async function bulkInsertProducts(products: NewProduct[]) {
+export type ProductImportMode = "append" | "replace";
+
+// Imports a batch of products, optionally replacing the existing inventory.
+export async function bulkInsertProducts(products: NewProduct[], mode: ProductImportMode = "append") {
   if (products.length === 0) {
     return 0;
   }
@@ -115,15 +136,20 @@ export async function bulkInsertProducts(products: NewProduct[]) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (mode === "replace") {
+      await client.query("DELETE FROM products");
+    }
     for (const product of products) {
       const insertedProduct = await client.query<{ id: number }>(
         "INSERT INTO products (name, description, price) VALUES ($1, $2, $3) RETURNING id",
         [product.name, product.description, product.price]
       );
-      await client.query(
-        "INSERT INTO product_images (product_id, storage_key, position) VALUES ($1, $2, 0)",
-        [insertedProduct.rows[0].id, product.storageKey]
-      );
+      for (const image of product.images) {
+        await client.query(
+          "INSERT INTO product_images (product_id, storage_key, position, width, height) VALUES ($1, $2, $3, $4, $5)",
+          [insertedProduct.rows[0].id, image.storageKey, image.position, image.width, image.height]
+        );
+      }
     }
     await client.query("COMMIT");
     return products.length;

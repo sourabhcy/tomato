@@ -36,7 +36,7 @@ export default function ProductUploadForm() {
   return (
     <form className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
       <h2 className="text-lg font-bold text-slate-950">Update inventory</h2>
-      <p className="text-sm text-slate-600">Upload a CSV with header: name,description,price,image_url</p>
+      <p className="text-sm text-slate-600">Upload a CSV with header: name,description,price,image_150_key,image_500_key,image_1200_key</p>
 
       <input
         type="file"
@@ -45,6 +45,18 @@ export default function ProductUploadForm() {
         required
         className="block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-500"
       />
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold text-slate-800">Import mode</legend>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input defaultChecked name="importMode" type="radio" value="append" />
+          Append to existing inventory
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input name="importMode" type="radio" value="replace" />
+          Replace existing inventory
+        </label>
+      </fieldset>
 
       <button
         type="submit"

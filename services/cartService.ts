@@ -1,14 +1,12 @@
 import pool from "@/db/pool";
-import { buildImageUrl } from "./productService";
+import { buildImageUrl, type ProductImageSource } from "./productService";
 
 type CartItemRow = {
   id: number;
   name: string;
   description: string;
   price: number;
-  thumbnail_key: string | null;
-  thumbnail_width: number | null;
-  thumbnail_height: number | null;
+  image_sources: { storageKey: string; width: number; height: number | null }[];
 };
 
 export async function addItemToCart(userId:number,productId:number){
@@ -52,27 +50,43 @@ export async function getCartItems(userId: number) {
       products.name,
       products.description,
       products.price,
-      product_images.storage_key AS thumbnail_key,
-      product_images.width AS thumbnail_width,
-      product_images.height AS thumbnail_height
+      COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'storageKey', product_images.storage_key,
+            'width', product_images.width,
+            'height', product_images.height
+          ) ORDER BY product_images.position
+        ) FILTER (WHERE product_images.id IS NOT NULL),
+        '[]'::jsonb
+      ) AS image_sources
     FROM cart_items
     INNER JOIN products
       ON products.id = cart_items.product_id
     LEFT JOIN product_images
-      ON product_images.product_id = products.id AND product_images.position = 0
+      ON product_images.product_id = products.id
     WHERE cart_items.user_id = $1
+    GROUP BY products.id, cart_items.created_at
     ORDER BY cart_items.created_at DESC
     `,
     [userId]
   );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    price: row.price,
-    thumbnailUrl: buildImageUrl(row.thumbnail_key),
-    thumbnailWidth: row.thumbnail_width,
-    thumbnailHeight: row.thumbnail_height,
-  }));
+  return result.rows.map((row) => {
+    const imageSources: ProductImageSource[] = row.image_sources.flatMap((image) => {
+      const url = buildImageUrl(image.storageKey);
+      return url && image.width ? [{ url, width: image.width, height: image.height }] : [];
+    });
+    const fallbackImage = imageSources.reduce((largest, image) => image.width > largest.width ? image : largest, imageSources[0]);
+
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      price: row.price,
+      imageSources,
+      width: fallbackImage?.width ?? null,
+      height: fallbackImage?.height ?? null,
+    };
+  });
 }

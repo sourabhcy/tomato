@@ -16,16 +16,18 @@ describe("productService", () => {
     expect(buildImageUrl(null)).toBeNull();
   });
 
-  it("returns page products with only their thumbnail metadata", async () => {
+  it("returns page products with responsive image sources", async () => {
     mockQuery.mockResolvedValue({
       rows: [{
         id: 1,
         name: "Keyboard",
         description: "Mechanical keyboard",
         price: 99,
-        thumbnail_key: "products/1/thumb.webp",
-        thumbnail_width: 320,
-        thumbnail_height: 180,
+        image_sources: [
+          { storageKey: "products/1/thumb.webp", width: 150, height: 150 },
+          { storageKey: "products/1/medium.webp", width: 500, height: 500 },
+          { storageKey: "products/1/large.webp", width: 1200, height: 1200 },
+        ],
       }],
     } as never);
 
@@ -34,16 +36,18 @@ describe("productService", () => {
       name: "Keyboard",
       description: "Mechanical keyboard",
       price: 99,
-      thumbnailUrl: "https://images.example.test/products/1/thumb.webp",
-      thumbnailWidth: 320,
-      thumbnailHeight: 180,
+      imageSources: [
+        { url: "https://images.example.test/products/1/thumb.webp", width: 150, height: 150 },
+        { url: "https://images.example.test/products/1/medium.webp", width: 500, height: 500 },
+        { url: "https://images.example.test/products/1/large.webp", width: 1200, height: 1200 },
+      ],
     }]);
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining("LEFT JOIN product_images pi"),
       [10, 20]
     );
     expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining("pi.position = 0"),
+      expect.stringContaining("jsonb_agg"),
       [10, 20]
     );
   });
@@ -79,9 +83,7 @@ describe("productService", () => {
       name: "Keyboard",
       description: "Mechanical keyboard",
       price: 99,
-      thumbnailUrl: null,
-      thumbnailWidth: null,
-      thumbnailHeight: null,
+      imageSources: [],
       images: [
         { url: "https://images.example.test/products/1/thumb.webp", position: 0, width: 320, height: 180 },
         { url: "https://images.example.test/products/1/large.webp", position: 2, width: 1200, height: 675 },
