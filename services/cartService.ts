@@ -1,12 +1,12 @@
 import pool from "@/db/pool";
-import { buildImageUrl, type ProductImageSource } from "./productService";
+import { mapImageSources, type StoredImageSource } from "./productService";
 
 type CartItemRow = {
   id: number;
   name: string;
   description: string;
   price: number;
-  image_sources: { storageKey: string; width: number; height: number | null }[];
+  image_sources: StoredImageSource[];
 };
 
 export async function addItemToCart(userId:number,productId:number){
@@ -73,11 +73,7 @@ export async function getCartItems(userId: number) {
   );
 
   return result.rows.map((row) => {
-    const imageSources: ProductImageSource[] = row.image_sources.flatMap((image) => {
-      const url = buildImageUrl(image.storageKey);
-      return url && image.width ? [{ url, width: image.width, height: image.height }] : [];
-    });
-    const fallbackImage = imageSources.reduce((largest, image) => image.width > largest.width ? image : largest, imageSources[0]);
+    const imageSources = mapImageSources(row.image_sources);
 
     return {
       id: row.id,
@@ -85,8 +81,6 @@ export async function getCartItems(userId: number) {
       description: row.description,
       price: row.price,
       imageSources,
-      width: fallbackImage?.width ?? null,
-      height: fallbackImage?.height ?? null,
     };
   });
 }

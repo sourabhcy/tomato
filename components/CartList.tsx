@@ -1,4 +1,5 @@
 import RemoveFromCartButton from "./RemoveFromCartButton";
+import { buildSrcSet, getLargestImageSource } from "../lib/responsiveImage";
 
 type Product = {
   id: number;
@@ -6,8 +7,6 @@ type Product = {
   description: string;
   price: number;
   imageSources: { url: string; width: number; height: number | null }[];
-  width: number | null;
-  height: number | null;
 };
 
 export default function CartList({
@@ -33,7 +32,7 @@ export default function CartList({
           {products.map((product) => (
             <li className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between" key={product.id}>
               <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
-                {product.imageSources.length > 0 ? <img src={product.imageSources.at(-1)!.url} srcSet={product.imageSources.map((image) => `${image.url} ${image.width}w`).join(", ")} sizes="80px" alt="" width={product.width ?? 80} height={product.height ?? 80} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div aria-label="No product image available" className="h-full w-full bg-slate-200" role="img" />}
+                <ResponsiveCartImage imageSources={product.imageSources} />
               </div>
               <div className="min-w-0">
                 <h2 className="truncate text-lg font-semibold text-slate-950">{product.name}</h2>
@@ -49,5 +48,27 @@ export default function CartList({
         </ul>
       )}
     </section>
+  );
+}
+
+function ResponsiveCartImage({ imageSources }: Pick<Product, "imageSources">) {
+  const fallbackImage = getLargestImageSource(imageSources);
+
+  if (!fallbackImage) {
+    return <div aria-label="No product image available" className="h-full w-full bg-slate-200" role="img" />;
+  }
+
+  return (
+    <img
+      src={fallbackImage.url}
+      srcSet={buildSrcSet(imageSources)}
+      sizes="80px"
+      alt=""
+      width={fallbackImage.width}
+      height={fallbackImage.height ?? fallbackImage.width}
+      loading="lazy"
+      decoding="async"
+      className="h-full w-full object-contain"
+    />
   );
 }

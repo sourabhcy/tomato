@@ -36,6 +36,75 @@ type ProductImageSource = {
 
 `url` is created only by `buildImageUrl(storageKey)`, which prefixes the key with `R2_PUBLIC_BASE_URL`. Do not introduce another image host, URL transformation service, or variant-specific API field.
 
+## End-to-end runtime flow
+
+```mermaid
+sequenceDiagram
+  actor Customer
+  participant Browser
+  participant ProductsPage as Next.js /products
+  participant ProductsAPI as GET /api/products
+  participant ProductService
+  participant Database as PostgreSQL
+  participant R2 as Public R2 host
+
+  Customer->>Browser: Open or scroll the catalog
+  Browser->>ProductsPage: Request initial /products page
+  ProductsPage->>ProductService: getProductPage(0, 100)
+  ProductService->>Database: Query products and product_images
+  Database-->>ProductService: storage_key, width, height, position
+  ProductService-->>ProductsPage: Product.imageSources with R2 URLs
+  ProductsPage-->>Browser: HTML and ProductList props
+
+  loop Virtualized catalog needs a later page
+    Browser->>ProductsAPI: GET /api/products?offset=n&limit=100
+    ProductsAPI->>ProductService: getProductPage(n, 100)
+    ProductService->>Database: Query the requested product page
+    Database-->>ProductsAPI: Stored image metadata
+    ProductsAPI-->>Browser: JSON with imageSources
+  end
+
+  Browser->>Browser: Evaluate srcset, sizes, DPR, and network conditions
+  Browser->>R2: Fetch selected public image URL directly
+  R2-->>Browser: thumb.webp, medium.webp, or large.webp
+```
+
+The Next.js application does not proxy image bytes and does not decide which R2 object is fetched. It only provides the browser with the candidate URLs and their intrinsic width descriptors. For example, the service produces:
+
+```text
+https://pub-aade24f8de3547218db428cb45d5cca5.r2.dev/products/1/thumb.webp  150w
+https://pub-aade24f8de3547218db428cb45d5cca5.r2.dev/products/1/medium.webp 500w
+https://pub-aade24f8de3547218db428cb45d5cca5.r2.dev/products/1/large.webp  1200w
+```
+
+`loading="lazy"` delays this direct R2 request until the image approaches the viewport. `decoding="async"` permits the browser to decode the downloaded image without blocking rendering work.
+
+## How the browser determines the source
+
+`srcSet` provides source candidates. The `sizes` attribute provides the browser's expected rendered slot width for the current media query. The browser then calculates an approximate resource-width target:
+
+$$
+	ext{required source width} = \text{matched sizes width in CSS pixels} \times \text{device pixel ratio}
+$$
+
+It normally chooses the smallest available `srcSet` candidate that satisfies that target, while remaining free to make additional performance decisions based on cache state, network quality, and browser implementation.
+
+With the current catalog policy:
+
+```html
+sizes="(max-width: 640px) 150px, (max-width: 1024px) 500px, 1200px"
+```
+
+the media-query match and DPR determine the request. At DPR $1$:
+
+| Viewport | Matched slot width | Candidate selected |
+| --- | --- | --- |
+| `375px` | `150px` | `150w` thumb |
+| `800px` | `500px` | `500w` medium |
+| `1440px` | `1200px` | `1200w` large |
+
+At a `$375px$` viewport with DPR $2$, the required source width is `$150 \times 2 = 300px$`; the browser selects `500w` because it is the smallest available candidate at least that wide. A browser can keep an already fetched larger source after a resize, so validation must use a fresh page load for each viewport.
+
 ## Incident summary
 
 The product catalog repeatedly requested `medium.webp`, even when tested at mobile and desktop viewport widths.
@@ -50,7 +119,7 @@ That value told the browser that the image could occupy a substantial portion of
 
 ## Root cause
 
-`sizes` must describe the image's expected rendered width, not simply the column count of the surrounding grid. The catalog had a fixed-height image area but advertised broad viewport-relative widths. This created a mismatch between the browser's source-selection input and the intended variant policy.
+`sizes` is a source-selection hint, not a measurement of the rendered DOM element. It must describe the intended display-width policy for a component rather than simply the column count of the surrounding grid. The catalog advertised broad viewport-relative widths, which created a mismatch between the browser's source-selection input and the intended variant policy.
 
 The corrected catalog declaration maps the existing source set to viewport bands:
 
@@ -58,15 +127,7 @@ The corrected catalog declaration maps the existing source set to viewport bands
 sizes="(max-width: 640px) 150px, (max-width: 1024px) 500px, 1200px"
 ```
 
-The browser combines `sizes` with the device pixel ratio (DPR). At DPR $1$, the expected fresh-load behavior is:
-
-| Viewport | Selected candidate |
-| --- | --- |
-| `375px` | `150w` thumb |
-| `800px` | `500w` medium |
-| `1440px` | `1200w` large |
-
-At higher DPR values, the browser can select a larger candidate. For example, a `$150px$` slot at DPR $2$ has an effective source requirement of approximately `$300px$`; with only `150w`, `500w`, and `1200w` available, `500w` is the correct choice. This is expected responsive-image behavior, not a fault.
+The browser combines `sizes` with the device pixel ratio (DPR), as described in [How the browser determines the source](#how-the-browser-determines-the-source). This is expected responsive-image behavior, not a fault.
 
 ## Current implementation
 

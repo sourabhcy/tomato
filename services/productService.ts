@@ -14,6 +14,12 @@ export type ProductImageSource = {
   height: number | null;
 };
 
+export type StoredImageSource = {
+  storageKey: string;
+  width: number;
+  height: number | null;
+};
+
 export type ProductImage = {
   url: string;
   position: number;
@@ -24,7 +30,7 @@ export type ProductImage = {
 export type ProductDetail = Product & { images: ProductImage[] };
 
 type ProductRow = Omit<Product, "imageSources"> & {
-  image_sources: { storageKey: string; width: number; height: number | null }[];
+  image_sources: StoredImageSource[];
 };
 
 type ProductDetailRow = Omit<ProductRow, "image_sources"> & {
@@ -41,17 +47,20 @@ export function buildImageUrl(storageKey: string | null) {
   return `${process.env.R2_PUBLIC_BASE_URL}/${storageKey}`;
 }
 
+export function mapImageSources(imageSources: StoredImageSource[]): ProductImageSource[] {
+  return imageSources.flatMap((image) => {
+    const url = buildImageUrl(image.storageKey);
+    return url && image.width ? [{ url, width: image.width, height: image.height }] : [];
+  });
+}
+
 function mapProduct(row: ProductRow): Product {
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     price: row.price,
-    imageSources: row.image_sources.map((image) => ({
-      url: buildImageUrl(image.storageKey)!,
-      width: image.width,
-      height: image.height,
-    })),
+    imageSources: mapImageSources(row.image_sources),
   };
 }
 
