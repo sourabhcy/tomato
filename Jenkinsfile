@@ -16,6 +16,7 @@ pipeline {
         REGISTRY = 'registry.digitalocean.com/ecom-next-registry'
         STAGING_DEPLOY_DIR = '/var/lib/jenkins/deployments/ecommerce-app-staging'
         PRODUCTION_DEPLOY_DIR = '/opt/apps/ecommerce-app'
+        DROPLET_HOST = credentials('production-droplet-host')
         SESSION_SECRET = credentials('SESSION_SECRET')
         NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID = credentials('new-relic-account-id')
         NEXT_PUBLIC_NEW_RELIC_AGENT_ID = credentials('new-relic-agent-id')
@@ -125,10 +126,7 @@ pipeline {
         stage('Deploy Production') {
             when { expression { params.DEPLOY_ENV == 'production' } }
             steps {
-                withCredentials([
-                    sshUserPrivateKey(credentialsId: 'digitalocean-droplet', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER'),
-                    string(credentialsId: 'production-droplet-host', variable: 'DROPLET_HOST')
-                ]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'digitalocean-droplet', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@$DROPLET_HOST" "mkdir -p '$PRODUCTION_DEPLOY_DIR'"
                         scp -o StrictHostKeyChecking=no -i "$SSH_KEY" docker-compose.yml nginx.conf migrations scripts/deploy-production.sh .env "$SSH_USER@$DROPLET_HOST:$PRODUCTION_DEPLOY_DIR/"
@@ -141,13 +139,10 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    if (params.DEPLOY_ENV == 'production') {
-                        withCredentials([string(credentialsId: 'production-droplet-host', variable: 'DROPLET_HOST')]) {
-                            sh 'curl --fail --silent --show-error "http://${DROPLET_HOST}:80/login"'
-                        }
-                    } else {
-                        sh "curl --fail --silent --show-error 'http://localhost:${params.STAGING_NGINX_PORT}/login'"
-                    }
+                    def target = params.DEPLOY_ENV == 'production'
+                        ? "http://${DROPLET_HOST}:80/login"
+                        : "http://localhost:${params.STAGING_NGINX_PORT}/login"
+                    sh "curl --fail --silent --show-error '${target}'"
                 }
             }
         }
