@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import AddToCartButton from "./AddToCartButton";
+import { buildSrcSet, getLargestImageSource } from "../lib/responsiveImage";
 import type { Product } from "@/services/productService";
 
 const PAGE_SIZE = 100;
@@ -19,12 +20,29 @@ const ProductCard = memo(function ProductCard({ product, isInCart, onCartChange 
   onCartChange: (productId: number, isInCart: boolean) => void;
 }) {
   if (!product) return <div aria-hidden="true" className="h-[260px] min-w-0 animate-pulse rounded-2xl bg-slate-200" />;
+  const imageSources = product.imageSources;
+  const fallbackImage = getLargestImageSource(imageSources);
 
   return (
-    <article className="flex h-[260px] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <article className="flex h-[260px] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="mb-3 flex h-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
+        {fallbackImage ? (
+          <img
+            src={fallbackImage.url}
+            srcSet={buildSrcSet(imageSources)}
+            sizes="(max-width: 640px) 150px, (max-width: 1024px) 500px, 1200px"
+            alt={product.name}
+            width={fallbackImage.width}
+            height={fallbackImage.height ?? fallbackImage.width}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-contain"
+          />
+        ) : <div aria-label="No product image available" className="h-full w-full bg-slate-200" role="img" />}
+      </div>
       <h2 className="truncate text-lg font-semibold text-slate-950">{product.name}</h2>
-      <p className="mt-2 line-clamp-4 text-sm leading-6 text-slate-600">{product.description}</p>
-      <strong className="mt-auto mb-4 block text-xl font-bold tracking-tight text-slate-950">${product.price}</strong>
+      <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-600">{product.description}</p>
+      <strong className="mt-auto mb-3 block text-xl font-bold tracking-tight text-slate-950">${product.price}</strong>
       <AddToCartButton productId={product.id} isInCart={isInCart} onCartChange={onCartChange} />
     </article>
   );

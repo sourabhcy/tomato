@@ -103,12 +103,14 @@ pipeline {
                     def pgUserCred = params.DEPLOY_ENV == 'production' ? 'postgres-user' : 'postgres-user-staging'
                     def pgPassCred = params.DEPLOY_ENV == 'production' ? 'postgres-password' : 'postgres-password-staging'
                     def pgDbCred   = params.DEPLOY_ENV == 'production' ? 'postgres-db' : 'postgres-db-staging'
+                    def r2PublicBaseUrlCred = params.DEPLOY_ENV == 'production' ? 'r2-public-base-url-production' : 'r2-public-base-url-staging'
                     def envFile    = params.DEPLOY_ENV == 'production' ? '.env' : '.env.staging'
 
                     withCredentials([
                         string(credentialsId: pgUserCred, variable: 'POSTGRES_USER'),
                         string(credentialsId: pgPassCred, variable: 'POSTGRES_PASSWORD'),
-                        string(credentialsId: pgDbCred, variable: 'POSTGRES_DB')
+                        string(credentialsId: pgDbCred, variable: 'POSTGRES_DB'),
+                        string(credentialsId: r2PublicBaseUrlCred, variable: 'R2_PUBLIC_BASE_URL')
                     ]) {
                         sh """
                             cat > ${envFile} << ENVEOF
@@ -117,6 +119,7 @@ POSTGRES_USER=\${POSTGRES_USER}
 POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
 POSTGRES_DB=\${POSTGRES_DB}
 DATABASE_URL=postgres://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/\${POSTGRES_DB}
+R2_PUBLIC_BASE_URL=\${R2_PUBLIC_BASE_URL}
 SESSION_SECRET=\${SESSION_SECRET}
 NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID=\${NEXT_PUBLIC_NEW_RELIC_ACCOUNT_ID}
 NEXT_PUBLIC_NEW_RELIC_AGENT_ID=\${NEXT_PUBLIC_NEW_RELIC_AGENT_ID}

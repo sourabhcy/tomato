@@ -6,6 +6,7 @@ jest.mock("@/lib/session", () => ({ getSession: jest.fn() }));
 jest.mock("@/services/productService", () => ({
   bulkInsertProducts: jest.fn(),
 }));
+jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 
 const mockGetSession = jest.mocked(getSession);
 const mockBulkInsertProducts = jest.mocked(bulkInsertProducts);
@@ -13,6 +14,7 @@ const mockBulkInsertProducts = jest.mocked(bulkInsertProducts);
 function csvFile(content: string) {
   const formData = new FormData();
   formData.set("file", new File([content], "products.csv", { type: "text/csv" }));
+  formData.set("importMode", "append");
   return formData;
 }
 
@@ -35,22 +37,37 @@ describe("uploadProductList action", () => {
     mockBulkInsertProducts.mockResolvedValue(2);
 
     const result = await uploadProductList(
-      csvFile("name,description,price\nMouse,A mouse,9.99\nKeyboard,A keyboard,19.99")
+      csvFile("name,description,price,image_150_key,image_500_key,image_1200_key\nMouse,A mouse,9.99,products/mouse/thumb.webp,products/mouse/medium.webp,products/mouse/large.webp\nKeyboard,A keyboard,19.99,products/keyboard/thumb.webp,products/keyboard/medium.webp,products/keyboard/large.webp")
     );
 
     expect(mockBulkInsertProducts).toHaveBeenCalledWith([
-      { name: "Mouse", description: "A mouse", price: 9.99 },
-      { name: "Keyboard", description: "A keyboard", price: 19.99 },
-    ]);
-    expect(result).toEqual({ inserted: 2 });
+      { name: "Mouse", description: "A mouse", price: 9.99, images: expect.any(Array) },
+      { name: "Keyboard", description: "A keyboard", price: 19.99, images: expect.any(Array) },
+    ], "append");
+    expect(result).toEqual({ inserted: 2, failed: 0, errors: [], importMode: "append" });
   });
 
-  it("rejects a malformed row", async () => {
+  it("returns malformed-row errors while inserting valid products", async () => {
     mockGetSession.mockResolvedValue({ userId: 1, role: "admin" });
+    mockBulkInsertProducts.mockResolvedValue(1);
 
-    await expect(uploadProductList(csvFile("name,description,price\nMouse,A mouse,not-a-number"))).rejects.toThrow(
-      "Invalid product row"
-    );
+    await expect(uploadProductList(csvFile("name,description,price,image_150_key,image_500_key,image_1200_key\nMouse,A mouse,not-a-number,products/mouse/thumb.webp,products/mouse/medium.webp,products/mouse/large.webp\nKeyboard,A keyboard,19.99,products/keyboard/thumb.webp,products/keyboard/medium.webp,products/keyboard/large.webp"))).resolves.toEqual({
+      inserted: 1,
+      failed: 1,
+      errors: [{ row: 2, message: "price must be a valid non-negative number" }],
+      importMode: "append",
+    });
+  });
+
+  it("replaces existing inventory when selected", async () => {
+    mockGetSession.mockResolvedValue({ userId: 1, role: "admin" });
+    mockBulkInsertProducts.mockResolvedValue(1);
+    const formData = csvFile("name,description,price,image_150_key,image_500_key,image_1200_key\nMouse,A mouse,9.99,products/mouse/thumb.webp,products/mouse/medium.webp,products/mouse/large.webp");
+    formData.set("importMode", "replace");
+
+    await uploadProductList(formData);
+
+    expect(mockBulkInsertProducts).toHaveBeenCalledWith(expect.any(Array), "replace");
   });
 
   it("rejects an oversized file without reading its content", async () => {

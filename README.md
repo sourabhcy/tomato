@@ -30,6 +30,7 @@ See [docs/architecture.md](docs/architecture.md) for the full architecture, data
    ```
    DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<db>
    SESSION_SECRET=<any-random-string>
+   R2_PUBLIC_BASE_URL=https://<public-r2-host>
    ```
 4. Run the dev server:
    ```bash

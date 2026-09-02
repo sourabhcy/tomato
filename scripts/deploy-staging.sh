@@ -18,10 +18,14 @@ DEPLOY_DIR="${DEPLOY_DIR:-/home/sourabh/experimental/deployment}"
 mkdir -p "${DEPLOY_DIR}"
 
 cp docker-compose.staging.yml nginx.staging.conf .env.staging "${DEPLOY_DIR}/"
+cp -R migrations "${DEPLOY_DIR}/"
 
 cd "${DEPLOY_DIR}"
 # Force-remove any containers from a prior deploy dir/project to avoid fixed-name conflicts (matches Jenkinsfile).
 docker rm -f postgres-staging ecommerce-app-staging nginx-proxy-staging 2>/dev/null || true
+docker compose -f docker-compose.staging.yml --env-file .env.staging up -d postgres
+until docker compose -f docker-compose.staging.yml --env-file .env.staging exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; do sleep 1; done
+docker compose -f docker-compose.staging.yml --env-file .env.staging exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < migrations/001_product_images.sql
 docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
 docker exec nginx-proxy-staging nginx -s reload || true
 

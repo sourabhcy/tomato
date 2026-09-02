@@ -1,4 +1,13 @@
 import pool from "@/db/pool";
+import { mapImageSources, type StoredImageSource } from "./productService";
+
+type CartItemRow = {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  image_sources: StoredImageSource[];
+};
 
 export async function addItemToCart(userId:number,productId:number){
 
@@ -34,21 +43,44 @@ export async function getCartProductIds(userId: number) {
 }
 
 export async function getCartItems(userId: number) {
-  const result = await pool.query(
+  const result = await pool.query<CartItemRow>(
     `
     SELECT
       products.id,
       products.name,
       products.description,
-      products.price
+      products.price,
+      COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'storageKey', product_images.storage_key,
+            'width', product_images.width,
+            'height', product_images.height
+          ) ORDER BY product_images.position
+        ) FILTER (WHERE product_images.id IS NOT NULL),
+        '[]'::jsonb
+      ) AS image_sources
     FROM cart_items
     INNER JOIN products
       ON products.id = cart_items.product_id
+    LEFT JOIN product_images
+      ON product_images.product_id = products.id
     WHERE cart_items.user_id = $1
+    GROUP BY products.id, cart_items.created_at
     ORDER BY cart_items.created_at DESC
     `,
     [userId]
   );
 
-  return result.rows;
+  return result.rows.map((row) => {
+    const imageSources = mapImageSources(row.image_sources);
+
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      price: row.price,
+      imageSources,
+    };
+  });
 }
