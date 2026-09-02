@@ -51,7 +51,6 @@ See [docs/architecture.md](docs/architecture.md) for the full architecture, data
 
 ## Deployment
 
-- **Staging** (local Docker stack, mirrors production): trigger Jenkins with `DEPLOY_ENV=staging`, or export the required runtime values and run `./scripts/deploy-staging.sh`. The script generates `.env.staging`; it does not read credentials from a checked-in env file. Compose waits for PostgreSQL, applies every file in `migrations/`, and then starts the app.
-- **Production** (DigitalOcean droplet): trigger Jenkins with `DEPLOY_ENV=production`. Jenkins builds and pushes the image, generates `.env` from credentials, and deploys `docker-compose.yml`, `nginx.conf`, and `migrations/` over SSH. Compose runs the same migration job before starting the app.
-- **Jenkins credentials**: configure `postgres-user-staging`, `postgres-password-staging`, `postgres-db-staging`, `r2-public-base-url-staging` and the corresponding production credentials without the `-staging` suffix. Also configure `SESSION_SECRET`, the New Relic values, `production-droplet-host`, `production-server-name`, and `production-tls-cert-name`. Credential values and public R2 hosts are never committed to the repository.
+- **Staging** (local Docker stack, mirrors production): `./scripts/deploy-staging.sh`, or trigger the Jenkins pipeline with `DEPLOY_ENV=staging`. Uses `docker-compose.staging.yml` / `nginx.staging.conf` / `.env.staging`.
+- **Production** (DigitalOcean droplet): trigger the Jenkins pipeline with `DEPLOY_ENV=production`. Builds and pushes to the DO container registry, then deploys over SSH using `docker-compose.yml` / `nginx.conf`.
 - See [utility.md](utility.md) for debugging commands (container/DB access, log tailing) against the staging stack.

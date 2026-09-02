@@ -1,14 +1,14 @@
 services:
   nginx:
     image: nginx:alpine
+    container_name: nginx-proxy-staging
     restart: unless-stopped
     ports:
       - "${NGINX_PORT:-8080}:80"
     volumes:
       - ./nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      ecommerce-app:
-        condition: service_started
+      - ecommerce-app
     networks:
       - app-network-staging
 
@@ -16,6 +16,7 @@ services:
     # Image is built separately (see scripts/deploy-staging.sh) since it needs
     # the full repo as build context, not just the files copied to DEPLOY_DIR.
     image: ecommerce-app:staging
+    container_name: ecommerce-app-staging
     restart: unless-stopped
     expose:
       - "3000"
@@ -25,13 +26,13 @@ services:
       - NODE_ENV=production
       - HOSTNAME=0.0.0.0
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      - postgres
     networks:
       - app-network-staging
 
   postgres:
     image: postgres:16
+    container_name: postgres-staging
     restart: unless-stopped
     env_file:
       - .env.staging
@@ -39,27 +40,8 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
     volumes:
       - pgdata-staging:/var/lib/postgresql/data
-    networks:
-      - app-network-staging
-
-  migrate:
-    image: postgres:16
-    env_file:
-      - .env.staging
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./migrations:/migrations:ro
-    entrypoint: ["sh", "-c"]
-    command: ["for migration in /migrations/*.sql; do PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$migration\"; done"]
     networks:
       - app-network-staging
 
