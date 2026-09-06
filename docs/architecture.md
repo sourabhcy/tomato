@@ -19,7 +19,7 @@ flowchart TB
     Pool[PostgreSQL connection pool]
   end
 
-  Database[(PostgreSQL\nusers · products · cart_items)]
+  Database[(PostgreSQL\nusers · products · cart_items · product_images)]
 
   Browser -->|request| Proxy
   Proxy -->|authorized| Pages

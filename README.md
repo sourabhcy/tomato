@@ -62,7 +62,14 @@ For diagrams and the detailed request/data flow, see [`docs/architecture.md`](do
 
    `R2_PUBLIC_BASE_URL` is required when product image keys are stored in the database. The New Relic variables are optional for local development.
 
-3. Provision the database schema before starting the app. The application requires the `users`, `products`, `cart_items`, and `product_images` tables. This repository currently contains only [`migrations/001_product_images.sql`](migrations/001_product_images.sql), which must be applied after the base `products` table exists; it does not include the initial schema or seed data.
+3. Provision the database schema before starting the app. Run the checked-in migrations in numeric order:
+
+   ```bash
+   psql "$DATABASE_URL" -f migrations/000_initial_schema.sql
+   psql "$DATABASE_URL" -f migrations/001_product_images.sql
+   ```
+
+   See [Database schema](#database-schema) for the tables, relationships, and first-admin setup.
 
 4. Start the development server:
 
@@ -71,6 +78,34 @@ For diagrams and the detailed request/data flow, see [`docs/architecture.md`](do
    ```
 
    Visit [http://localhost:3000](http://localhost:3000).
+
+## Database schema
+
+PostgreSQL is the system of record. All application tables are created by the migration files in [`migrations/`](migrations/); apply them in filename order to every new environment. Each migration uses `IF NOT EXISTS`, so re-running the two commands above is safe.
+
+```text
+users 1 ──< cart_items >── 1 products 1 ──< product_images
+```
+
+| Table | Columns | Purpose |
+| --- | --- | --- |
+| `users` | `id`, `name`, `email`, `password_hash`, `role`, `created_at` | Login identities. `email` is unique; `role` is either `admin` or `user`. Passwords must be bcrypt hashes, never plain text. |
+| `products` | `id`, `name`, `description`, `price`, `created_at` | Catalog records. `price` is `NUMERIC(10,2)` and cannot be negative. |
+| `cart_items` | `id`, `user_id`, `product_id`, `created_at` | A user's saved products. The unique `(user_id, product_id)` constraint prevents duplicate cart entries. Deleting a user or product deletes related cart entries. |
+| `product_images` | `id`, `product_id`, `storage_key`, `position`, `width`, `height`, `created_at` | Ordered responsive-image sources for a product. `storage_key` is the relative key in the public R2/CDN bucket; it is not a full URL. Deleting a product deletes its image rows. |
+
+`product_images` is deliberately separated from `products`: one product can have several responsive variants (the CSV importer writes 150px, 500px, and 1200px sources). The app prefixes each `storage_key` with `R2_PUBLIC_BASE_URL` at runtime. For the image contract and CSV format, see [`docs/responsive-images.md`](docs/responsive-images.md).
+
+### Create the first administrator
+
+The app does not ship a default user. Generate a bcrypt hash after `npm ci`, then insert the initial administrator. Replace the example name and email, and keep the generated hash private.
+
+```bash
+node -e "require('bcrypt').hash('choose-a-strong-password', 10).then(console.log)"
+psql "$DATABASE_URL" -c "INSERT INTO users (name, email, password_hash, role) VALUES ('Admin', 'admin@example.com', '<bcrypt-hash>', 'admin');"
+```
+
+Use that email and the original password at `/login`. Administrators can create ordinary users in `/admin/users`; only administrators can manage products and users.
 
 ## Quality checks
 
@@ -114,9 +149,7 @@ For a local Docker-based development environment, run:
 ./scripts/deploy-staging.sh
 ```
 
-This helper is for local development only. It builds `ecommerce-app:staging`, starts PostgreSQL, applies `migrations/001_product_images.sql`, and starts Nginx. It copies the local stack to `DEPLOY_DIR` (default: `/home/sourabh/experimental/deployment`). The site is available at `http://localhost:<NGINX_PORT>`.
-
-Because the script only runs the product-images migration, initialize the base schema before using a new staging database.
+This helper is for local development only. It builds `ecommerce-app:staging`, starts PostgreSQL, applies every migration in `migrations/` in filename order, and starts Nginx. It copies the local stack to `DEPLOY_DIR` (default: `/home/sourabh/experimental/deployment`). The site is available at `http://localhost:<NGINX_PORT>`. Create the first administrator using the commands in [Create the first administrator](#create-the-first-administrator).
 
 ## Deployment
 
@@ -145,7 +178,7 @@ Before the first production deployment, prepare the remote host:
 - Install Docker Engine and the Docker Compose v2 plugin, and ensure the Jenkins SSH user can run Docker commands.
 - Allow inbound ports 80 and 443; Jenkins creates `/opt/apps/ecommerce-app` automatically.
 - Configure the production hostname and certificate paths in `nginx.conf`, then obtain the corresponding TLS certificate in the named `certbot-etc` volume. The shipped configuration uses a fixed hostname, so update it before deploying another domain.
-- Initialize the database schema before the application starts. The Compose file creates the PostgreSQL container and persistent volume, but it does not load a base schema.
+- Initialize the database schema before the application starts by applying every file in `migrations/` in filename order. The Compose file creates the PostgreSQL container and persistent volume, but does not load migrations automatically. Create the first administrator using the commands in [Create the first administrator](#create-the-first-administrator).
 
 ## Available commands
 

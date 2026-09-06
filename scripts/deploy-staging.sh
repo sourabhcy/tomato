@@ -25,7 +25,9 @@ cd "${DEPLOY_DIR}"
 docker rm -f postgres-staging ecommerce-app-staging nginx-proxy-staging 2>/dev/null || true
 docker compose -f docker-compose.staging.yml --env-file .env.staging up -d postgres
 until docker compose -f docker-compose.staging.yml --env-file .env.staging exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; do sleep 1; done
-docker compose -f docker-compose.staging.yml --env-file .env.staging exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < migrations/001_product_images.sql
+for migration in migrations/*.sql; do
+  docker compose -f docker-compose.staging.yml --env-file .env.staging exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$migration"
+done
 docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
 docker exec nginx-proxy-staging nginx -s reload || true
 
